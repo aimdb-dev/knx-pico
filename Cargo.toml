@@ -29,12 +29,13 @@ heapless = { version = "0.9.1", default-features = false }
 defmt = { version = "1.0.1", optional = true }
 
 # Embassy dependencies (only for binary/examples)
-embassy-sync = { version = "0.7.2", features = ["defmt"], optional = true }
-embassy-executor = { version = "0.9.0", features = ["arch-cortex-m", "executor-thread", "executor-interrupt", "defmt"], optional = true }
-embassy-time = { version = "0.5.0", features = ["defmt", "defmt-timestamp-uptime"], optional = true }
-embassy-futures = { version = "0.1.1", optional = true }
-embassy-rp = { version = "0.8.0", features = ["defmt", "unstable-pac", "time-driver", "critical-section-impl", "rp235xa", "binary-info"], optional = true }
-embassy-net = { version = "0.7.1", features = ["defmt", "icmp", "tcp", "udp", "raw", "dhcpv4", "medium-ethernet", "dns"], optional = true }
+# Using aimdb workspace's local embassy checkout to avoid version conflicts
+embassy-sync = { path = "../embassy/embassy-sync", features = ["defmt"], optional = true }
+embassy-executor = { path = "../embassy/embassy-executor", features = ["arch-cortex-m", "executor-thread", "executor-interrupt", "defmt"], optional = true }
+embassy-time = { path = "../embassy/embassy-time", features = ["defmt", "defmt-timestamp-uptime"], optional = true }
+embassy-futures = { path = "../embassy/embassy-futures", optional = true }
+embassy-rp = { path = "../embassy/embassy-rp", features = ["defmt", "unstable-pac", "time-driver", "critical-section-impl", "rp235xa", "binary-info"], optional = true }
+embassy-net = { path = "../embassy/embassy-net", features = ["defmt", "icmp", "tcp", "udp", "raw", "dhcpv4", "medium-ethernet", "dns"], optional = true }
 embassy-usb-logger = { version = "0.5.1", optional = true }
 
 # Hardware specific (only for RP2040 binary)
@@ -108,26 +109,6 @@ embassy-rp-usb = [
 ]
 
 
-[profile.release]
-# Optimize for size instead of speed (z = aggressive size optimization)
-opt-level = "z"
-# Enable full Link-Time Optimization for maximum size reduction
-lto = "fat"
-# Single codegen unit for better optimization (slower compile, smaller binary)
-codegen-units = 1
-# Strip symbols from binary
-strip = true
-# No debug info in release (saves ~2-3 MB)
-debug = false
-# Panic = abort for smaller binary and faster unwinding
-panic = "abort"
-# Disable overflow checks for smaller size (use with caution!)
-overflow-checks = false
-
-[profile.dev]
-# Even in debug, optimize a bit for usable performance
-opt-level = 1
-
 [lints.rust]
 # Compiler lints for code quality
 ambiguous_negative_literals = "warn"
@@ -164,7 +145,6 @@ map_err_ignore = "warn"
 redundant_type_annotations = "warn"
 renamed_function_params = "warn"
 semicolon_outside_block = "warn"
-string_to_string = "warn"
 undocumented_unsafe_blocks = "warn"
 unnecessary_safety_comment = "warn"
 unnecessary_safety_doc = "warn"
@@ -184,6 +164,10 @@ too_many_lines = "allow"              # Some protocol parsers are legitimately l
 struct_excessive_bools = "allow"      # Control fields have multiple bools by design
 inline_always = "allow"               # Hot-path optimizations for embedded performance
 cast_precision_loss = "allow"         # DPT conversion math requires precision trade-offs
+
+# Workspace-level lint opt-outs (library used in workspace)
+cargo_common_metadata = "allow"       # Metadata warnings from parent workspace not applicable
+redundant_feature_names = "allow"     # Feature naming follows semantic conventions for this library
 
 [package.metadata.docs.rs]
 # Build documentation without hardware-specific features
