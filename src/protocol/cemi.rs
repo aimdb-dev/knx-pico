@@ -468,10 +468,9 @@ impl<'a> LDataFrame<'a> {
         };
 
         // Extract application data
-        // NPDU length includes TPCI (1 byte) + APCI (1 byte) + data
-        // So: data_length = npdu_length - 2
-        // But for data frames, we already consumed TPCI+APCI (2 bytes)
-        // data_start is at position 9 (for data frames) or 8 (for control)
+        // NPDU length includes TPCI + APCI + data
+        // For 6-bit encoded values (DPT1), npdu_length=1 (just TPCI+APCI combined byte)
+        // For standard encoding, npdu_length >= 2 (TPCI+APCI + data bytes)
         // Total frame from NPDU start: 7 (up to NPDU) + npdu_length
         let npdu_end = 7 + npdu_length as usize;
 
@@ -479,7 +478,13 @@ impl<'a> LDataFrame<'a> {
             return Err(KnxError::invalid_frame());
         }
 
-        let app_data = &data[data_start..npdu_end];
+        // For 6-bit encoding (npdu_length=1), data is empty (value in APCI)
+        // For standard encoding, data starts at position 9
+        let app_data = if npdu_end <= data_start {
+            &[] // 6-bit encoded, no separate data bytes
+        } else {
+            &data[data_start..npdu_end]
+        };
 
         Ok(Self {
             ctrl1,
