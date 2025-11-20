@@ -141,20 +141,23 @@ impl Dpt9 {
 
         let value_u16 = u16::from_be_bytes([bytes[0], bytes[1]]);
 
-        // Extract fields
+        // DPT9 format: MEEE EMMM MMMM MMMM
+        // M (bit 15): Sign bit (0=positive, 1=negative)
+        // EEEE (bits 14-11): Exponent (4 bits, unsigned)
+        // MMMMMMMMMMM (bits 10-0): Mantissa magnitude (11 bits, UNSIGNED)
+        
+        let sign_bit = (value_u16 >> 15) & 0x01;
         let exponent = ((value_u16 >> 11) & 0x0F) as u8;
-        let mantissa_raw = value_u16 & 0x07FF;
-
-        // Convert mantissa from 11-bit two's complement
-        let mantissa = if mantissa_raw & 0x0400 != 0 {
-            // Negative: extend sign bit
-            (mantissa_raw | 0xF800) as i16
+        let mantissa_magnitude = (value_u16 & 0x07FF) as i16;
+        
+        // Apply sign to mantissa
+        let mantissa = if sign_bit == 1 {
+            -mantissa_magnitude
         } else {
-            mantissa_raw as i16
+            mantissa_magnitude
         };
 
         // Calculate value = (0.01 * mantissa) * 2^exponent
-        // The sign is already included in the mantissa (two's complement)
         let value = (0.01 * f32::from(mantissa)) * (1u32 << exponent) as f32;
 
         Ok(value)
@@ -174,33 +177,30 @@ impl DptEncode<f32> for Dpt9 {
             return Ok(2);
         }
 
+        // Extract sign
+        let sign_bit = if value < 0.0 { 1u16 } else { 0u16 };
+        let abs_value = value.abs();
+
         // Find the appropriate exponent (0-15)
         let mut exponent = 0u8;
-        let mut mantissa_f = value * 100.0;
+        let mut mantissa_f = abs_value * 100.0;
 
-        // Scale to fit mantissa in 11-bit signed range: -1024 to +1023
-        while !(-1024.0..=1023.0).contains(&mantissa_f) && exponent < 15 {
+        // Scale to fit mantissa in 11-bit unsigned range: 0 to 2047
+        while mantissa_f > 2047.0 && exponent < 15 {
             exponent += 1;
-            mantissa_f = value * 100.0 / (1u32 << exponent) as f32;
+            mantissa_f = abs_value * 100.0 / (1u32 << exponent) as f32;
         }
 
         // Check range
-        if !(-1024.0..=1023.0).contains(&mantissa_f) {
+        if mantissa_f > 2047.0 {
             return Err(KnxError::dpt_value_out_of_range());
         }
 
-        // Round to nearest integer (manual rounding for no_std)
-        let mantissa = if mantissa_f >= 0.0 {
-            (mantissa_f + 0.5) as i16
-        } else {
-            (mantissa_f - 0.5) as i16
-        };
+        // Round to nearest integer
+        let mantissa_magnitude = (mantissa_f + 0.5) as u16;
 
-        // mantissa is 11-bit two's complement
-        let mantissa_u16 = mantissa as u16 & 0x07FF;
-
-        // Build the 16-bit value
-        let value_u16 = (u16::from(exponent) << 11) | mantissa_u16;
+        // Build the 16-bit value: MEEE EMMM MMMM MMMM
+        let value_u16 = (sign_bit << 15) | (u16::from(exponent) << 11) | (mantissa_magnitude & 0x07FF);
 
         let bytes = value_u16.to_be_bytes();
         buf[0] = bytes[0];
