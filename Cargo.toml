@@ -31,15 +31,15 @@ defmt = { version = "1.0.1", optional = true }
 # Embassy dependencies (only for binary/examples)
 # Using aimdb workspace's local embassy checkout to avoid version conflicts
 embassy-sync = { path = "../embassy/embassy-sync", features = ["defmt"], optional = true }
-embassy-executor = { path = "../embassy/embassy-executor", features = ["arch-cortex-m", "executor-thread", "executor-interrupt", "defmt"], optional = true }
+embassy-executor = { path = "../embassy/embassy-executor", features = ["platform-cortex-m", "executor-thread", "executor-interrupt", "defmt"], optional = true }
 embassy-time = { path = "../embassy/embassy-time", features = ["defmt", "defmt-timestamp-uptime"], optional = true }
 embassy-rp = { path = "../embassy/embassy-rp", features = ["defmt", "unstable-pac", "time-driver", "critical-section-impl", "rp235xa", "binary-info"], optional = true }
 embassy-net = { path = "../embassy/embassy-net", features = ["defmt", "icmp", "tcp", "udp", "raw", "dhcpv4", "medium-ethernet", "dns"], optional = true }
-embassy-usb-logger = { version = "0.5.1", optional = true }
+embassy-usb-logger = { path = "../embassy/embassy-usb-logger", optional = true }
 
 # Hardware specific (only for RP2040 binary)
-cyw43 = { version = "0.5.0", features = ["defmt", "firmware-logs"], optional = true }
-cyw43-pio = { version = "0.8.0", features = ["defmt"], optional = true }
+cyw43 = { path = "../embassy/cyw43", features = ["defmt", "firmware-logs"], optional = true }
+cyw43-pio = { path = "../embassy/cyw43-pio", features = ["defmt"], optional = true }
 panic-persist = { version = "0.3.0", features = ["utf8"], optional = true }
 defmt-rtt = { version = "1.0.0", optional = true }
 cortex-m-rt = { version = "0.7.0", optional = true }
