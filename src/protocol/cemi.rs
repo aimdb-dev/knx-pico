@@ -426,6 +426,9 @@ pub struct LDataFrame<'a> {
     pub tpci: Tpci,
     /// APCI
     pub apci: Apci,
+    /// Raw APCI octet. Its low 6 bits carry the value of a 6-bit encoded
+    /// datapoint — see [`Self::six_bit_value`].
+    pub apci_raw: u8,
     /// Application data
     pub data: &'a [u8],
 }
@@ -457,14 +460,14 @@ impl<'a> LDataFrame<'a> {
         let tpci = Tpci::from_byte(tpci_byte);
 
         // For data frames, parse APCI
-        let (apci, data_start) = if tpci.is_data() {
+        let (apci, apci_raw, data_start) = if tpci.is_data() {
             // SAFETY: Bounds checked above - data.len() >= MIN_SIZE = 9.
             // Index 8 is within bounds (< 9). Using get_unchecked avoids redundant
             // bounds check in this hot path for KNX frame processing.
-            let apci = Apci::from_bytes(tpci_byte, unsafe { *data.get_unchecked(8) });
-            (apci, 9)
+            let apci_raw = unsafe { *data.get_unchecked(8) };
+            (Apci::from_bytes(tpci_byte, apci_raw), apci_raw, 9)
         } else {
-            (Apci::Unknown(0), 8)
+            (Apci::Unknown(0), 0, 8)
         };
 
         // Extract application data
@@ -494,8 +497,19 @@ impl<'a> LDataFrame<'a> {
             npdu_length,
             tpci,
             apci,
+            apci_raw,
             data: app_data,
         })
+    }
+
+    /// Value of a 6-bit encoded datapoint, carried in the low bits of the
+    /// APCI octet (DPT1 and friends, `npdu_length == 1`).
+    ///
+    /// Only meaningful when [`Self::data`] is empty; a telegram with data
+    /// octets carries its value there instead.
+    #[inline]
+    pub const fn six_bit_value(&self) -> u8 {
+        extract_6bit_value(self.apci_raw)
     }
 
     /// Get destination as group address (if applicable)
