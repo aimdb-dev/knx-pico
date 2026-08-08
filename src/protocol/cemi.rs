@@ -420,7 +420,7 @@ pub struct LDataFrame<'a> {
     pub source: IndividualAddress,
     /// Destination address (individual or group)
     pub destination_raw: u16,
-    /// NPDU length (data length + 1 for TPCI/APCI)
+    /// NPDU length: the APCI octet plus the data octets, i.e. `data.len() + 1`
     pub npdu_length: u8,
     /// TPCI
     pub tpci: Tpci,
@@ -470,19 +470,23 @@ impl<'a> LDataFrame<'a> {
             (Apci::Unknown(0), 0, 8)
         };
 
-        // Extract application data
-        // NPDU length includes TPCI + APCI + data
-        // For 6-bit encoded values (DPT1), npdu_length=1 (just TPCI+APCI combined byte)
-        // For standard encoding, npdu_length >= 2 (TPCI+APCI + data bytes)
-        // Total frame from NPDU start: 7 (up to NPDU) + npdu_length
-        let npdu_end = 7 + npdu_length as usize;
+        // Extract application data.
+        //
+        // The NPDU length octet counts the APCI octet plus the data octets —
+        // it excludes the TPCI octet at index 7. So the data octets occupy
+        // [9, 8 + npdu_length):
+        //   npdu_length = 1 → 6-bit encoded (DPT1 and friends), no data octets
+        //   npdu_length = 2 → one data octet  (DPT5)
+        //   npdu_length = 3 → two data octets (DPT9), and so on
+        let npdu_end = 8 + npdu_length as usize;
 
         if data.len() < npdu_end {
             return Err(KnxError::invalid_frame());
         }
 
-        // For 6-bit encoding (npdu_length=1), data is empty (value in APCI)
-        // For standard encoding, data starts at position 9
+        // A 6-bit telegram ends exactly at `data_start`; a malformed frame
+        // claiming npdu_length = 0 would end before it. Both mean "no data
+        // octets" rather than an inverted range.
         let app_data = if npdu_end <= data_start {
             &[] // 6-bit encoded, no separate data bytes
         } else {
@@ -763,7 +767,7 @@ mod tests {
             0xE0, // Control field 2 (group address, hop count 6)
             0x11, 0x01, // Source: 1.1.1
             0x0A, 0x03, // Destination: 1/2/3
-            0x02, // NPDU length (TPCI/APCI + data = 2 bytes)
+            0x01, // NPDU length (APCI octet only — no data octets follow)
             0x00, // TPCI (unnumbered data)
             0x81, // APCI (group write) + 6-bit data (0x01)
         ];
@@ -776,8 +780,51 @@ mod tests {
             GroupAddress::new(1, 2, 3).unwrap()
         );
         assert!(frame.is_group_write());
-        // For 6-bit values, data is encoded in APCI byte
-        // The actual data extraction would be: extract_6bit_value(0x81) = 0x01
+        // For 6-bit values, the value rides in the APCI byte, not in `data`.
+        assert!(frame.data.is_empty());
+        assert_eq!(frame.six_bit_value(), 0x01);
+    }
+
+    /// A telegram carrying a single data octet (DPT5 — 5.001 percentage,
+    /// 5.010 counter, …) has `npdu_length = 2`: the APCI octet plus one data
+    /// octet. Reading the length as "TPCI + APCI + data" makes this slice
+    /// empty, and the value is silently lost.
+    #[test]
+    fn test_ldata_frame_parse_single_data_octet() {
+        for raw in [0x00u8, 0x7F, 0x80, 0xFF] {
+            let data = [
+                0xBC, 0xE0, // Control fields
+                0x11, 0x01, // Source: 1.1.1
+                0x0A, 0x03, // Destination: 1/2/3
+                0x02, // NPDU length: APCI octet + 1 data octet
+                0x00, // TPCI (unnumbered data)
+                0x80, // APCI (group write)
+                raw,  // Data octet
+            ];
+
+            let frame = LDataFrame::parse(&data).unwrap();
+            assert!(frame.is_group_write());
+            assert_eq!(frame.data, &[raw], "data octet 0x{raw:02X} was lost");
+        }
+    }
+
+    /// The NPDU length octet bounds the payload: trailing octets past it are
+    /// not part of the application data.
+    #[test]
+    fn test_ldata_frame_data_is_bounded_by_npdu_length() {
+        let data = [
+            0xBC, 0xE0, // Control fields
+            0x11, 0x01, // Source: 1.1.1
+            0x0A, 0x03, // Destination: 1/2/3
+            0x03, // NPDU length: APCI octet + 2 data octets
+            0x00, // TPCI (unnumbered data)
+            0x80, // APCI (group write)
+            0x0C, 0x1A, // Data octets
+            0xDE, 0xAD, // Trailing padding — not application data
+        ];
+
+        let frame = LDataFrame::parse(&data).unwrap();
+        assert_eq!(frame.data, &[0x0C, 0x1A]);
     }
 
     #[test]
@@ -788,7 +835,7 @@ mod tests {
             0xE0, // Control field 2
             0x12, 0x05, // Source: 1.2.5
             0x2E, 0x07, // Destination: 5/6/7
-            0x02, // NPDU length (TPCI + APCI = 2 bytes minimum for data frames)
+            0x01, // NPDU length (APCI octet only — a read carries no data)
             0x00, // TPCI (unnumbered data)
             0x00, // APCI (group read)
         ];
@@ -811,7 +858,7 @@ mod tests {
             0xE0, // Control field 2
             0x11, 0x01, // Source
             0x0A, 0x03, // Destination
-            0x02, // NPDU length (2 bytes for TPCI+APCI)
+            0x01, // NPDU length (APCI octet only — no data octets follow)
             0x00, // TPCI (unnumbered data)
             0x80, // APCI (group write)
         ];
