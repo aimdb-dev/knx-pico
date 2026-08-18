@@ -1,12 +1,18 @@
 [package]
-name = "knx-pico"
-version = "0.3.0"
+# Published fork of `knx-pico`. The name carries the `aimdb-` prefix because a
+# fork must not share a version number with upstream: `knx-pico 0.3.0` exists on
+# crates.io and is *different code*, so any dependant resolving that version
+# gets the NPDU off-by-one panic back. The version line continues upstream's to
+# keep the relationship legible — 0.3.1 is "upstream 0.3.0 plus the carried
+# fixes". `[lib] name` stays `knx_pico`, so no `use` statement changes.
+name = "aimdb-knx-pico"
+version = "0.3.1"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 authors = ["Cristiano Chieppa"]
-description = "KNXnet/IP protocol implementation for embedded systems"
-repository = "https://github.com/cc90202/knx-pico"
-homepage = "https://github.com/cc90202/knx-pico"
+description = "KNXnet/IP protocol implementation for embedded systems (aimdb-dev fork of knx-pico)"
+repository = "https://github.com/aimdb-dev/knx-pico"
+homepage = "https://github.com/aimdb-dev/knx-pico"
 readme = "README.md"
 keywords = ["knx", "knxnet-ip", "embedded", "no-std", "home-automation"]
 categories = ["embedded", "no-std", "network-programming"]
