@@ -24,6 +24,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "aimdb-knx-pico"
+version = "0.3.1"
+dependencies = [
+ "cortex-m-rt",
+ "critical-section",
+ "cyw43",
+ "cyw43-pio",
+ "defmt 1.1.1",
+ "defmt-rtt",
+ "embassy-executor",
+ "embassy-net",
+ "embassy-rp",
+ "embassy-sync 0.8.0",
+ "embassy-time",
+ "embassy-usb-logger",
+ "heapless 0.9.3",
+ "log",
+ "panic-persist",
+ "static_cell",
+]
+
+[[package]]
 name = "aligned"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -500,6 +522,7 @@ version = "0.9.1"
 dependencies = [
  "defmt 1.1.1",
  "document-features",
+ "embassy-futures",
  "embassy-net-driver",
  "embassy-sync 0.8.0",
  "embassy-time",
@@ -1007,28 +1030,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cb26cec98cce3a3d96cbb7bced3c4b16e3d13f27ec56dbd62cbc8f39cfb9d653"
 dependencies = [
  "cpufeatures",
-]
-
-[[package]]
-name = "knx-pico"
-version = "0.3.0"
-dependencies = [
- "cortex-m-rt",
- "critical-section",
- "cyw43",
- "cyw43-pio",
- "defmt 1.1.1",
- "defmt-rtt",
- "embassy-executor",
- "embassy-net",
- "embassy-rp",
- "embassy-sync 0.8.0",
- "embassy-time",
- "embassy-usb-logger",
- "heapless 0.9.3",
- "log",
- "panic-persist",
- "static_cell",
 ]
 
 [[package]]
